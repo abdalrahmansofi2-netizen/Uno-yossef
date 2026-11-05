@@ -4,25 +4,28 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>UNO YOSSEF</title>
 <style>
-:root{--bg:#111522;--panel:#20283a;--purple:#7857e8}*{box-sizing:border-box}
-body{margin:0;background:radial-gradient(circle at top,#2b2850,#111522 60%);color:#fff;font-family:system-ui,Tahoma,Arial;min-height:100vh}
-header{padding:18px;text-align:center;font-weight:900;font-size:25px;letter-spacing:1px}
-main{max-width:900px;margin:auto;padding:12px}
-.panel{background:#ffffff0d;border:1px solid #ffffff20;border-radius:20px;padding:18px;margin:12px 0}
+:root{--purple:#7857e8}*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#26324a,#101522 68%);color:#fff;font-family:system-ui,Tahoma,Arial;min-height:100vh}
+header{padding:16px;text-align:center;font-weight:900;font-size:25px}
+main{max-width:900px;margin:auto;padding:10px}
+.panel{background:#ffffff0d;border:1px solid #ffffff20;border-radius:20px;padding:16px;margin:12px 0}
 input,button{font:inherit;border:0;border-radius:12px;padding:12px}
 input{background:#fff;color:#222;width:min(100%,280px);text-align:center}
 button{background:var(--purple);color:white;font-weight:800;cursor:pointer;margin:4px}
-button:disabled{opacity:.35;cursor:not-allowed}
-.center{text-align:center}.players{display:flex;justify-content:space-around;gap:8px;flex-wrap:wrap}
-.player{background:#ffffff12;border-radius:14px;padding:10px 15px;min-width:90px;text-align:center}
-.player.active{outline:2px solid #ffe36e;background:#ffffff20}
-.table{display:flex;align-items:center;justify-content:center;gap:28px;min-height:190px}
-.card{width:72px;height:106px;border:3px solid white;border-radius:13px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:25px;font-weight:900;text-shadow:1px 2px #0008;box-shadow:0 5px 12px #0006;cursor:pointer;flex:none}
+.center{text-align:center}.muted{color:#d2d8df;font-size:14px}.hidden{display:none}
+.game-board{position:relative;background:radial-gradient(ellipse at center,#23794e 0%,#12603d 58%,#08452f 100%);border:12px solid #74462e;border-radius:48% / 42%;min-height:440px;padding:22px 12px;box-shadow:inset 0 0 0 4px #ffffff20,0 12px 25px #0008}
+.game-board:before{content:"UNO YOSSEF";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-12deg);font-size:clamp(25px,7vw,48px);font-weight:1000;color:#ffffff12;white-space:nowrap;pointer-events:none}
+.players{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:start}
+.player{background:#172337e8;border:1px solid #ffffff55;border-radius:14px;padding:8px 5px;min-width:0;text-align:center;font-size:13px;box-shadow:0 4px 8px #0005}
+.player.active{outline:3px solid #ffe36e;background:#3b315b}
+.player:last-child{grid-column:2}
+.table{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:25px;min-height:175px}
+.card{width:66px;height:98px;border:3px solid white;border-radius:13px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:23px;font-weight:900;text-shadow:1px 2px #0008;box-shadow:0 5px 12px #0006;cursor:pointer;flex:none}
 .red{background:#e53935}.blue{background:#2878d0}.green{background:#27ae60}.yellow{background:#f2c230;color:#211}.back{background:repeating-linear-gradient(45deg,#322b57,#322b57 8px,#4d3c86 8px,#4d3c86 16px)}
-.hand{display:flex;overflow-x:auto;justify-content:center;padding:12px 4px;min-height:135px}
+.hand{display:flex;overflow-x:auto;justify-content:center;padding:12px 4px;min-height:125px}
 .hand .card{margin-left:-8px}.hand .card:hover{transform:translateY(-9px)}
-.muted{color:#c2c4d0;font-size:14px}.hidden{display:none}
-@media(max-width:500px){.card{width:58px;height:88px;font-size:20px}.hand{justify-content:flex-start}.table{min-height:150px}}
+.hand-panel{background:#172337;border:1px solid #ffffff30;border-radius:20px;margin-top:12px;padding:12px}
+@media(max-width:500px){.game-board{min-height:390px;border-width:8px;padding:15px 8px}.card{width:55px;height:84px;font-size:19px}.table{min-height:155px;gap:18px}.players{gap:5px}.player{font-size:11px;padding:7px 3px}.hand{justify-content:flex-start}}
 </style></head>
 <body>
 <header>🃏 UNO YOSSEF</header>
@@ -33,12 +36,16 @@ button:disabled{opacity:.35;cursor:not-allowed}
 <button onclick="start()">ابدأ اللعب</button>
 </section>
 <section id="game" class="hidden">
-<div class="panel"><div id="players" class="players"></div></div>
-<div class="panel center"><b id="status">دورك</b><div class="table">
-<div><div class="muted">كومة السحب</div><div class="card back" onclick="draw()">＋</div><small id="deckCount"></small></div>
-<div><div class="muted">آخر ورقة</div><div id="topCard"></div><small id="activeColor"></small></div>
-</div><button onclick="draw()">اسحب ورقة</button><button onclick="restart()">لعبة جديدة</button></div>
-<div class="panel"><b id="handTitle">أوراقك</b><div id="hand" class="hand"></div><p class="muted">اضغط على ورقة للعبها. طابق اللون أو الرقم.</p></div>
+<div class="center" style="margin:10px"><b id="status">دورك</b></div>
+<div class="game-board">
+  <div id="players" class="players"></div>
+  <div class="table">
+    <div class="center"><div class="muted">اسحب ورقة</div><div class="card back" onclick="draw()">＋</div><small id="deckCount"></small></div>
+    <div class="center"><div class="muted">الورقة الحالية</div><div id="topCard"></div><small id="activeColor"></small></div>
+  </div>
+</div>
+<div class="center"><button onclick="draw()">اسحب ورقة</button><button onclick="restart()">لعبة جديدة</button></div>
+<div class="hand-panel"><b id="handTitle">أوراقك</b><div id="hand" class="hand"></div><p class="muted center">اضغط على ورقة للعبها. طابق اللون أو الرقم.</p></div>
 </section>
 </main>
 <script>
@@ -48,8 +55,8 @@ const $=id=>document.getElementById(id);
 function makeDeck(){let d=[];for(let c of suits){d.push({c,v:'0'});for(let n=1;n<=9;n++){d.push({c,v:''+n},{c,v:''+n})}for(let v of ['تخطي','عكس','+2'])d.push({c,v},{c,v})}for(let i=0;i<4;i++)d.push({c:'أسود',v:'تغيير'},{c:'أسود',v:'+4'});return d.sort(()=>Math.random()-.5)}
 function start(){let name=$('nickname').value.trim()||'اللاعب';$('home').classList.add('hidden');$('game').classList.remove('hidden');restart(name)}
 function restart(name=ps[0]?.name||'اللاعب'){ps=[{name,bot:false,hand:[]},{name:'ليلى',bot:true,hand:[]},{name:'آدم',bot:true,hand:[]},{name:'سارة',bot:true,hand:[]}];deck=makeDeck();pile=[];ps.forEach(p=>{for(let i=0;i<7;i++)p.hand.push(deck.pop())});let first;do{first=deck.pop()}while(first.c==='أسود');pile=[first];color=first.c;turn=0;dir=1;over=false;busy=false;render()}
-function topCard(){return pile[pile.length-1]}
-function playable(c){return c.c==='أسود'||c.c===color||c.v===topCard().v}
+function top(){return pile[pile.length-1]}
+function playable(c){return c.c==='أسود'||c.c===color||c.v===top().v}
 function draw(){if(over||busy||turn!==0)return;if(!deck.length){if(pile.length>1){let t=pile.pop();deck=pile.splice(0);pile=[t];deck.sort(()=>Math.random()-.5)}else return}ps[0].hand.push(deck.pop());advance()}
 function play(i,chosen){if(over||busy||turn!==0)return;let c=ps[0].hand[i];if(!playable(c)){$('status').textContent='لا تطابق الورقة اللون أو الرقم';return}if(c.c==='أسود'){chosen=prompt('اختر اللون: أحمر أو أزرق أو أخضر أو أصفر','أحمر');if(!suits.includes(chosen))return}apply(i,chosen)}
 function apply(i,chosen){let p=ps[turn],c=p.hand.splice(i,1)[0];pile.push(c);color=c.c==='أسود'?(chosen||suits[Math.floor(Math.random()*4)]):c.c;if(!p.hand.length){over=true;$('status').textContent='🏆 فاز '+p.name+'!';render();return}let skip=false;if(c.v==='عكس'){dir*=-1;if(ps.length===2)skip=true}else if(c.v==='تخطي')skip=true;else if(c.v==='+2'||c.v==='+4'){let nxt=(turn+dir+ps.length)%ps.length;for(let j=0;j<(c.v==='+2'?2:4);j++)if(deck.length)ps[nxt].hand.push(deck.pop());skip=true}if(skip)turn=(turn+dir+ps.length)%ps.length;advance()}
@@ -57,5 +64,5 @@ function advance(){turn=(turn+dir+ps.length)%ps.length;render();if(turn!==0&&!ov
 function botTurn(){if(over)return;let p=ps[turn],opts=p.hand.map((c,i)=>({c,i})).filter(x=>playable(x.c));if(!opts.length){if(deck.length)p.hand.push(deck.pop());render();setTimeout(()=>{if(turn!==0){turn=(turn+dir+ps.length)%ps.length;busy=false;render();if(turn!==0){busy=true;setTimeout(botTurn,700)}}},450);return}opts.sort((a,b)=>(b.c.c==='أسود')-(a.c.c==='أسود'));let pick=opts[0],chosen=suits[Math.floor(Math.random()*4)];applyBot(pick.i,chosen)}
 function applyBot(i,chosen){let p=ps[turn],c=p.hand.splice(i,1)[0];pile.push(c);color=c.c==='أسود'?chosen:c.c;if(!p.hand.length){over=true;busy=false;$('status').textContent='🏆 فاز '+p.name+'!';render();return}let skip=false;if(c.v==='عكس'){dir*=-1;if(ps.length===2)skip=true}else if(c.v==='تخطي')skip=true;else if(c.v==='+2'||c.v==='+4'){let nxt=(turn+dir+ps.length)%ps.length;for(let j=0;j<(c.v==='+2'?2:4);j++)if(deck.length)ps[nxt].hand.push(deck.pop());skip=true}if(skip)turn=(turn+dir+ps.length)%ps.length;turn=(turn+dir+ps.length)%ps.length;busy=false;render();if(turn!==0){busy=true;setTimeout(botTurn,850)}}
 function cardEl(c){let e=document.createElement('div');e.className='card '+(c.c==='أسود'?'back':cls[c.c]);e.textContent=c.v;return e}
-function render(){$('players').innerHTML='';ps.forEach((p,i)=>{let e=document.createElement('div');e.className='player '+(turn===i?'active':'');e.innerHTML='<b>'+p.name+'</b><br><small>'+(p.bot?'🤖 روبوت':'أنت')+' · '+p.hand.length+' أوراق</small>';$('players').append(e)});$('topCard').innerHTML='';$('topCard').append(cardEl(topCard()));$('activeColor').textContent='اللون الحالي: '+color;$('deckCount').textContent=deck.length+' ورقة';$('handTitle').textContent='أوراق '+ps[0].name+' ('+ps[0].hand.length+')';$('hand').innerHTML='';ps[0].hand.forEach((c,i)=>{let e=cardEl(c);e.title='العب الورقة';e.onclick=()=>play(i);if(!playable(c))e.style.opacity='.55';$('hand').append(e)});if(!over)$('status').textContent=turn===0?'دورك! طابق اللون أو الرقم.':'دور '+ps[turn].name+'…'}
+function render(){$('players').innerHTML='';ps.forEach((p,i)=>{let e=document.createElement('div');e.className='player '+(turn===i?'active':'');e.innerHTML='<b>'+p.name+'</b><br><small>'+(p.bot?'🤖 روبوت':'أنت')+' · '+p.hand.length+' أوراق</small>';$('players').append(e)});$('topCard').innerHTML='';$('topCard').append(cardEl(top()));$('activeColor').textContent='اللون الحالي: '+color;$('deckCount').textContent=deck.length+' ورقة';$('handTitle').textContent='أوراق '+ps[0].name+' ('+ps[0].hand.length+')';$('hand').innerHTML='';ps[0].hand.forEach((c,i)=>{let e=cardEl(c);e.title='العب الورقة';e.onclick=()=>play(i);if(!playable(c))e.style.opacity='.55';$('hand').append(e)});if(!over)$('status').textContent=turn===0?'دورك! طابق اللون أو الرقم.':'دور '+ps[turn].name+'…'}
 </script></body></html>
