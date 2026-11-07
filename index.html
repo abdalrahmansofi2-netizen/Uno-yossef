@@ -292,7 +292,7 @@ function turnSound(){tone(660,.12,'sine',.06);tone(880,.2,'sine',.055,.14)}
 function robotSound(){tone(390,.055,'triangle',.025);tone(330,.07,'triangle',.02,.06)}
 
 const colors=['red','blue','green','yellow'], symbols=['0','1','2','3','4','5','6','7','8','9','+2','skip','reverse'];
-let hands=[],discard=[],turn=0,direction=1,currentColor='red',busy=false,needUno=false,gameOver=false,playerCount=4,hasDrawnThisTurn=false;
+let hands=[],discard=[],turn=0,direction=1,currentColor='red',busy=false,needUno=false,gameOver=false,playerCount=4,hasDrawnThisTurn=false,lastGameMode='normal';
 const $=id=>document.getElementById(id);
 const names=['أنت','الكمبيوتر','روبوت 2','روبوت 3'];
 function makeDeck(){let d=[];for(const c of colors){d.push({c,v:'0'});for(let n=1;n<=9;n++){d.push({c,v:String(n)},{c,v:String(n)});}for(let i=0;i<2;i++)d.push({c,v:'+2'},{c,v:'skip'},{c,v:'reverse'});}for(let i=0;i<4;i++)d.push({c:'wild',v:'wild'},{c:'wild',v:'+4'});return d.sort(()=>Math.random()-.5)}
@@ -313,7 +313,7 @@ function flyCard(source){
  ],{duration:520,easing:'cubic-bezier(.2,.75,.25,1)'});
  setTimeout(()=>clone.remove(),540);
 }
-function startGame(mode='normal'){audioReady();onlineMode=false;hasDrawnThisTurn=false;playerCount=mode==='1v1'?2:4;hands=[[],[],[],[]];discard=[];turn=0;direction=1;busy=false;gameOver=false;needUno=false;let deck=makeDeck();for(let n=0;n<7;n++)for(let p=0;p<playerCount;p++)hands[p].push(deck.pop());let first=deck.pop();while(first.c==='wild')first=deck.pop();discard.push(first);currentColor=first.c;window.deck=deck;$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');$('settingsMenu').classList.add('hidden');$('endDialog').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount)}render();say('دورك! العب ورقة تطابق اللون أو الرقم');turnSound();}
+function startGame(mode='normal'){lastGameMode=mode;audioReady();onlineMode=false;hasDrawnThisTurn=false;playerCount=mode==='1v1'?2:4;hands=[[],[],[],[]];discard=[];turn=0;direction=1;busy=false;gameOver=false;needUno=false;let deck=makeDeck();for(let n=0;n<7;n++)for(let p=0;p<playerCount;p++)hands[p].push(deck.pop());let first=deck.pop();while(first.c==='wild')first=deck.pop();discard.push(first);currentColor=first.c;window.deck=deck;$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');$('settingsMenu').classList.add('hidden');$('endDialog').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount)}render();say('دورك! العب ورقة تطابق اللون أو الرقم');turnSound();}
 function topCard(){return discard[discard.length-1]}
 function canPlay(c){let t=topCard();return c.c==='wild'||c.c===currentColor||c.v===t.v}
 function render(){let t=topCard();$('discard').className='card '+(t.c==='wild'?currentColor:t.c);$('discard').innerHTML='<span>'+(t.v==='skip'?'⊘':t.v==='reverse'?'⇄':t.v==='wild'?'✦':t.v)+'</span>';
@@ -371,7 +371,7 @@ $('createRoomBtn').onclick=createOnlineRoom;
 $('joinRoomBtn').onclick=()=>{stopRoomPolling();$('friendsMenu').classList.add('hidden');$('roomMenu').classList.remove('hidden');$('roomTitle').textContent='الانضمام إلى غرفة — '+friendsPlayerCount+' لاعبين';$('roomDescription').textContent='أدخل رمز الغرفة الذي أرسله لك صديقك.';$('roomCodeDisplay').classList.add('hidden');$('roomCodeInput').classList.remove('hidden');$('confirmJoinBtn').classList.remove('hidden');$('startOnlineBtn').classList.add('hidden');};
 $('confirmJoinBtn').onclick=joinOnlineRoom;$('startOnlineBtn').onclick=startOnlineGame;
 $('roomBackBtn').onclick=()=>{$('roomMenu').classList.add('hidden');$('friendsMenu').classList.remove('hidden');stopRoomPolling();};
-$('again').onclick=startGame;
+$('again').onclick=()=>{ if(onlineMode){ say('لإعادة مباراة الأصدقاء، ارجع إلى القائمة وأنشئ غرفة جديدة.'); $('endDialog').classList.add('hidden'); $('restart').click(); return; } startGame(lastGameMode); };
 
 </script>
 </body></html>
