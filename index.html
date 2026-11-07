@@ -325,23 +325,26 @@ function render(){let t=topCard();$('discard').className='card '+(t.c==='wild'?c
   if(p===2) back.style.transform=`rotate(${(k-4.5)*3}deg)`;
   fan.appendChild(back);
  }
- }$('mycount').textContent=hands[0].length+' أوراق';$('seat1').classList.toggle('active',turn===1);$('seat2').classList.toggle('active',turn===2);$('seat3').classList.toggle('active',turn===3);let h=$('hand');h.innerHTML='';hands[0].forEach((c,i)=>{let el=cardEl(c);if(turn===0&&!busy&&canPlay(c))el.classList.add('playable');el.addEventListener('click',()=>play(0,i));h.appendChild(el)});$('drawBtn').disabled=turn!==0||busy||gameOver;}
+ }$('mycount').textContent=hands[0].length+' أوراق';$('seat1').classList.toggle('active',turn===1);$('seat2').classList.toggle('active',turn===2);$('seat3').classList.toggle('active',turn===3);let h=$('hand');h.innerHTML='';hands[0].forEach((c,i)=>{let el=cardEl(c);if(turn===0&&!busy&&canPlay(c))el.classList.add('playable');el.addEventListener('click',()=>play(0,i));h.appendChild(el)});$('drawBtn').disabled=turn!==0||busy||onlineBusy||gameOver;}
 function draw(p,n=1){for(let i=0;i<n;i++){if(!window.deck.length){if(discard.length>1){let top=discard.pop();window.deck=discard.sort(()=>Math.random()-.5);discard=[top]}else return}hands[p].push(window.deck.pop())}}
 function next(){turn=(turn+direction+playerCount)%playerCount;render();if(turn!==0&&!gameOver){busy=true;say(names[turn]+' يفكر... 🤔');setTimeout(robotTurn,1400+Math.floor(Math.random()*1100))}else{busy=false;say('🔔 دورك الآن! اختر ورقة أو اسحب ورقة');turnSound();render()}}
 function finish(p){gameOver=true;$('endTitle').textContent=p===0?'🏆 فزت!':'انتهت الجولة';$('endText').textContent=p===0?'مبروك! أنهيت أوراقك قبل الجميع.':names[p]+' أنهى أوراقه وفاز هذه المرة.';$('endDialog').classList.remove('hidden')}
-function play(p,index,chosen){if(gameOver||busy&&p===0||turn!==p)return;let c=hands[p][index];if(!c||!canPlay(c))return;if(c.c==='wild'&&!chosen&&p===0){$('colorDialog').classList.remove('hidden');return}const source=p===0?$('hand').children[index]:$('fan'+p).children[Math.min(index,Math.max(0,$('fan'+p).children.length-1))];
+let onlineMode=false, onlineSeat=0, onlineIsOwner=false, onlinePlayerNames=[], onlineLastUpdated='', onlineBusy=false, pendingWildIndex=-1;
+async function onlineAction(action,extra={}){if(!onlineMode||!activeRoomCode||!activePlayerId)return;onlineBusy=true;render();try{const data=await callRoomFunction({action,room_code:activeRoomCode,player_id:activePlayerId,...extra});applyOnlineState(data);return data;}catch(e){say('تعذر تنفيذ الحركة: '+e.message);throw e;}finally{onlineBusy=false;render();}}
+function applyOnlineState(data){if(!data)return;onlineMode=true;playerCount=Number(data.player_count||friendsPlayerCount);onlineSeat=Number(data.your_seat||0);const oldTurn=turn;turn=(Number(data.turn||0)-onlineSeat+playerCount)%playerCount;direction=Number(data.direction||1);discard=Array.isArray(data.discard)?data.discard:discard;currentColor=data.current_color||currentColor;hands=Array.from({length:4},(_,i)=>i===0?(data.your_hand||[]):[]);(data.players||[]).forEach(pl=>{const relative=(Number(pl.seat)-onlineSeat+playerCount)%playerCount;if(relative>0)hands[relative]=Array.from({length:Number(pl.cards||0)},()=>({c:'back',v:'?'}));});for(let i=playerCount;i<4;i++)hands[i]=[];gameOver=data.phase==='finished';busy=onlineBusy;onlineLastUpdated=data.updated_at||'';for(let p=1;p<4;p++){const rel=(onlineSeat+p)%playerCount;const info=(data.players||[]).find(x=>Number(x.seat)===rel);if(info){const el=$('seat'+p);el.querySelector('.pname').textContent=onlinePlayerNames[rel]||('لاعب '+(p+1));el.querySelector('.avatar').textContent='👤';}}$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount);}if(data.phase==='finished'){ $('endTitle').textContent=Number(data.winner)===onlineSeat?'🏆 فزت!':'انتهت المباراة';$('endText').textContent=Number(data.winner)===onlineSeat?'مبروك! أنهيت أوراقك.':'فاز لاعب آخر هذه المرة.';$('endDialog').classList.remove('hidden');}render();if(!gameOver&&turn===0)say('🔔 دورك الآن! العب ورقة أو اسحب.');else if(!gameOver)say('انتظر دور اللاعب الآخر...');}
+function play(p,index,chosen){if(onlineMode){if(p!==0||turn!==0||onlineBusy||gameOver)return;const c=hands[0][index];if(!c||!canPlay(c))return;if(c.c==='wild'&&!chosen){pendingWildIndex=index;$('colorDialog').classList.remove('hidden');return;}onlineAction('play',{card_index:index,...(chosen?{color:chosen}:{})});return;}if(gameOver||busy&&p===0||turn!==p)return;let c=hands[p][index];if(!c||!canPlay(c))return;if(c.c==='wild'&&!chosen&&p===0){$('colorDialog').classList.remove('hidden');return}const source=p===0?$('hand').children[index]:$('fan'+p).children[Math.min(index,Math.max(0,$('fan'+p).children.length-1))];
 flyCard(source);cardSound();
 hands[p].splice(index,1);discard.push(c);if(c.c!=='wild')currentColor=c.c;else currentColor=chosen||colors[Math.floor(Math.random()*4)];if(hands[p].length===0){render();finish(p);return}if(p===0&&hands[p].length===1){say('بقيت ورقة واحدة! اضغط UNO');needUno=true}else needUno=false;
 let skip=false;if(c.v==='+2'){let victim=(p+direction+playerCount)%playerCount;draw(victim,2);skip=true}else if(c.v==='+4'){let victim=(p+direction+playerCount)%playerCount;draw(victim,4);skip=true}else if(c.v==='skip')skip=true;else if(c.v==='reverse'){direction*=-1;if(p!==0){}}
 render();say(names[p]+' لعب '+(c.v==='wild'?'ورقة تغيير اللون':c.v));if(skip)turn=(turn+direction+4)%4;next()}
-document.querySelectorAll('.colorpick').forEach(b=>b.addEventListener('click',()=>{$('colorDialog').classList.add('hidden');let i=hands[0].findIndex(c=>c.c==='wild');if(i>=0)play(0,i,b.dataset.color)}));
+document.querySelectorAll('.colorpick').forEach(b=>b.addEventListener('click',()=>{$('colorDialog').classList.add('hidden');const i=pendingWildIndex;pendingWildIndex=-1;if(i>=0)play(0,i,b.dataset.color)}));
 function robotTurn(){if(gameOver)return;let options=hands[turn].map((c,i)=>({c,i})).filter(x=>canPlay(x.c));if(options.length){options.sort((a,b)=>(b.c.v==='+4'?4:b.c.v==='+2'?3:b.c.c==='wild'?2:1)-(a.c.v==='+4'?4:a.c.v==='+2'?3:a.c.c==='wild'?2:1));let pick=options[0];playRobot(pick.i)}else{drawSound();draw(turn);let i=hands[turn].findIndex(canPlay);if(i>=0)playRobot(i);else{say(names[turn]+' سحب ورقة');next()}}}
 function playRobot(i){let c=hands[turn][i];robotSound();const source=$('fan'+turn).children[Math.min(i,Math.max(0,$('fan'+turn).children.length-1))];flyCard(source);hands[turn].splice(i,1);discard.push(c);if(c.c!=='wild')currentColor=c.c;else{let counts={red:0,blue:0,green:0,yellow:0};hands[turn].forEach(x=>{if(x.c!=='wild')counts[x.c]++});currentColor=colors.sort((a,b)=>counts[b]-counts[a])[0]}if(hands[turn].length===0){render();finish(turn);return}let p=turn;if(c.v==='+2')draw((p+direction+4)%4,2);if(c.v==='+4')draw((p+direction+4)%4,4);if(c.v==='reverse')direction*=-1;let skip=['skip','+2','+4'].includes(c.v);render();say(names[p]+' لعب ورقة');if(skip)turn=(turn+direction+4)%4;next()}
-$('drawBtn').addEventListener('click',()=>{if(turn!==0||busy||gameOver)return;drawSound();draw(0);let i=hands[0].findIndex(canPlay);render();if(i>=0)say('يمكنك لعب الورقة الجديدة أو الاحتفاظ بها');else{say('سحبت ورقة، لا توجد حركة متاحة');setTimeout(next,650)}});
+$('drawBtn').addEventListener('click',()=>{if(turn!==0||busy||gameOver||onlineBusy)return;if(onlineMode){drawSound();onlineAction('draw');return;}drawSound();draw(0);let i=hands[0].findIndex(canPlay);render();if(i>=0)say('يمكنك لعب الورقة الجديدة أو الاحتفاظ بها');else{say('سحبت ورقة، لا توجد حركة متاحة');setTimeout(next,650)}});
 $('unoBtn').addEventListener('click',()=>{if(hands[0].length===1){say('UNO! أحسنت 🎉');needUno=false}else say('اضغط UNO عندما تبقى معك ورقة واحدة')});
 $('soundBtn').onclick=()=>{soundEnabled=!soundEnabled;$('soundBtn').textContent=soundEnabled?'🔊 الصوت':'🔇 صامت';if(soundEnabled){audioReady();turnSound()}};
 
-$('restart').onclick=()=>{$('homeMenu').classList.remove('hidden')};
+$('restart').onclick=()=>{if(onlineMode){stopRoomPolling();onlineMode=false;activeRoomCode='';activePlayerId='';$('endDialog').classList.add('hidden');$('app').style.display='flex';$('homeMenu').classList.remove('hidden');}else $('homeMenu').classList.remove('hidden')};
 let friendsPlayerCount=2;
 $('normalBtn').onclick=()=>startGame('normal');
 $('computerBtn').onclick=()=>startGame('1v1');
@@ -355,94 +358,18 @@ $('menuSoundBtn').onclick=()=>{soundEnabled=!soundEnabled;$('menuSoundBtn').text
 const SUPABASE_URL='https://awtmflsullkslyjzdnbf.supabase.co';
 const SUPABASE_KEY='sb_publishable_orquF5HYEANyY6tEZBbTZQ_JGiL07Wo';
 const EDGE_URL=SUPABASE_URL+'/functions/v1/swift-handler';
-let activeRoomCode='';
-let activePlayerId='';
-let roomPollTimer=null;
-
-function getPlayerId(){
- try{
-  let id=sessionStorage.getItem('uno_yossef_player_id');
-  if(!id){id=crypto.randomUUID();sessionStorage.setItem('uno_yossef_player_id',id);}
-  return id;
- }catch(e){return crypto.randomUUID();}
-}
-async function callRoomFunction(payload){
- const response=await fetch(EDGE_URL,{
-  method:'POST',
-  headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-  body:JSON.stringify(payload)
- });
- const data=await response.json().catch(()=>({}));
- if(!response.ok)throw new Error(data.error||data.message||('HTTP '+response.status));
- return data;
-}
-function stopRoomPolling(){
- if(roomPollTimer){clearInterval(roomPollTimer);roomPollTimer=null;}
-}
-async function pollRoomPresence(){
- if(!activeRoomCode||!activePlayerId)return;
- try{
-  const data=await callRoomFunction({action:'state',room_code:activeRoomCode,player_id:activePlayerId});
-  const total=Number(data.player_count||friendsPlayerCount);
-  const connected=(data.players||[]).filter(p=>p.connected).length;
-  $('roomDescription').textContent='الغرفة '+activeRoomCode+' — اللاعبون المنضمون: '+connected+' من '+total+'. تم تحديث حالة الغرفة. مزامنة أوراق اللعب والأدوار لم تكتمل بعد.';
- }catch(e){
-  $('roomDescription').textContent='تعذر تحديث حالة الغرفة: '+e.message;
- }
-}
-async function createOnlineRoom(){
- $('createRoomBtn').disabled=true;
- $('friendsMenu').classList.add('hidden');$('roomMenu').classList.remove('hidden');
- $('roomTitle').textContent='إنشاء غرفة — '+friendsPlayerCount+' لاعبين';
- $('roomCodeDisplay').classList.remove('hidden');$('roomCodeDisplay').textContent='...';
- $('roomCodeInput').classList.add('hidden');$('confirmJoinBtn').classList.add('hidden');
- $('roomDescription').textContent='جارٍ الاتصال بالخادم وإنشاء الغرفة...';
- try{
-  const data=await callRoomFunction({action:'create',player_count:friendsPlayerCount});
-  activeRoomCode=data.room.room_code;
-  activePlayerId=data.player_id;
-  $('roomCodeDisplay').textContent=activeRoomCode;
-  $('roomDescription').textContent='تم إنشاء الغرفة بنجاح. أرسل الرمز لصديقك. سنحدّث عدد المنضمين تلقائياً. اللعب المتزامن بالبطاقات والأدوار لم يكتمل بعد.';
-  stopRoomPolling();
-  pollRoomPresence();
-  roomPollTimer=setInterval(pollRoomPresence,5000);
- }catch(e){
-  $('roomCodeDisplay').textContent='';
-  $('roomDescription').textContent='تعذر إنشاء الغرفة: '+e.message;
- }finally{$('createRoomBtn').disabled=false;}
-}
-async function joinOnlineRoom(){
- const code=$('roomCodeInput').value.trim().toUpperCase();
- if(!/^[A-Z0-9]{6}$/.test(code)){
-  $('roomDescription').textContent='أدخل رمزاً صحيحاً من 6 أحرف أو أرقام.';
-  return;
- }
- $('confirmJoinBtn').disabled=true;
- $('roomDescription').textContent='جارٍ الانضمام إلى الغرفة...';
- try{
-  activePlayerId=getPlayerId();
-  const data=await callRoomFunction({action:'join',room_code:code,player_id:activePlayerId});
-  activeRoomCode=data.room.room_code;
-  $('roomDescription').textContent='تم الانضمام إلى الغرفة. جارٍ تحديث عدد اللاعبين... مزامنة أوراق اللعب والأدوار لم تكتمل بعد.';
-  stopRoomPolling();
-  pollRoomPresence();
-  roomPollTimer=setInterval(pollRoomPresence,5000);
- }catch(e){
-  $('roomDescription').textContent='تعذر الانضمام: '+e.message;
- }finally{$('confirmJoinBtn').disabled=false;}
-}
+let activeRoomCode='',activePlayerId='',roomPollTimer=null;
+function getPlayerId(){try{let id=sessionStorage.getItem('uno_yossef_player_id');if(!id){id=crypto.randomUUID();sessionStorage.setItem('uno_yossef_player_id',id);}return id;}catch(e){return crypto.randomUUID();}}
+async function callRoomFunction(payload){const response=await fetch(EDGE_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify(payload)});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||data.message||('HTTP '+response.status));return data;}
+function stopRoomPolling(){if(roomPollTimer){clearInterval(roomPollTimer);roomPollTimer=null;}}
+async function pollRoomPresence(){if(!activeRoomCode||!activePlayerId)return;try{const data=await callRoomFunction({action:'state',room_code:activeRoomCode,player_id:activePlayerId});const connected=(data.players||[]).filter(p=>p.connected).length;const total=Number(data.player_count||friendsPlayerCount);if(data.phase==='waiting'){$('roomDescription').textContent='رمز الغرفة: '+activeRoomCode+' — اللاعبون: '+connected+' من '+total+'. '+(onlineIsOwner?'عندما ينضم الجميع اضغط ابدأ المباراة.':'انتظر صاحب الغرفة ليبدأ المباراة.');$('startOnlineBtn').classList.toggle('hidden',!onlineIsOwner||connected!==total);$('startOnlineBtn').disabled=connected!==total;}else{if(!onlineMode){onlineSeat=Number(data.your_seat||0);onlinePlayerNames=(data.players||[]).map((p,i)=>i===onlineSeat?'أنت':'لاعب '+(i+1));applyOnlineState(data);}else if(data.updated_at!==onlineLastUpdated){applyOnlineState(data);}}}catch(e){$('roomDescription').textContent='تعذر تحديث الغرفة: '+e.message;}}
+async function createOnlineRoom(){$('createRoomBtn').disabled=true;$('friendsMenu').classList.add('hidden');$('roomMenu').classList.remove('hidden');$('roomTitle').textContent='إنشاء غرفة — '+friendsPlayerCount+' لاعبين';$('roomCodeDisplay').classList.remove('hidden');$('roomCodeDisplay').textContent='...';$('roomCodeInput').classList.add('hidden');$('confirmJoinBtn').classList.add('hidden');$('startOnlineBtn').classList.add('hidden');$('roomDescription').textContent='جارٍ إنشاء الغرفة...';try{const data=await callRoomFunction({action:'create',player_count:friendsPlayerCount});activeRoomCode=data.room.room_code;activePlayerId=data.player_id;onlineIsOwner=true;onlineMode=false;$('roomCodeDisplay').textContent=activeRoomCode;$('roomDescription').textContent='تم إنشاء الغرفة. أرسل الرمز لصديقك.';$('startOnlineBtn').classList.remove('hidden');stopRoomPolling();await pollRoomPresence();roomPollTimer=setInterval(pollRoomPresence,1800);}catch(e){$('roomDescription').textContent='تعذر إنشاء الغرفة: '+e.message;$('roomCodeDisplay').textContent='';}finally{$('createRoomBtn').disabled=false;}}
+async function joinOnlineRoom(){const code=$('roomCodeInput').value.trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(code)){$('roomDescription').textContent='أدخل رمزاً صحيحاً من 6 أحرف أو أرقام.';return;}$('confirmJoinBtn').disabled=true;$('roomDescription').textContent='جارٍ الانضمام...';try{activePlayerId=getPlayerId();const data=await callRoomFunction({action:'join',room_code:code,player_id:activePlayerId});activeRoomCode=data.room.room_code;onlineIsOwner=false;onlineMode=false;$('roomCodeDisplay').classList.remove('hidden');$('roomCodeDisplay').textContent=activeRoomCode;$('roomCodeInput').classList.add('hidden');$('confirmJoinBtn').classList.add('hidden');$('roomDescription').textContent='تم الانضمام. انتظر صاحب الغرفة ليبدأ المباراة.';stopRoomPolling();await pollRoomPresence();roomPollTimer=setInterval(pollRoomPresence,1800);}catch(e){$('roomDescription').textContent='تعذر الانضمام: '+e.message;}finally{$('confirmJoinBtn').disabled=false;}}
+async function startOnlineGame(){if(!onlineIsOwner)return;$('startOnlineBtn').disabled=true;try{const data=await callRoomFunction({action:'start',room_code:activeRoomCode,player_id:activePlayerId});onlineMode=true;onlinePlayerNames=(data.players||[]).map((p,i)=>i===onlineSeat?'أنت':'لاعب '+(i+1));applyOnlineState(data);$('roomMenu').classList.add('hidden');$('app').style.display='flex';stopRoomPolling();roomPollTimer=setInterval(pollRoomPresence,1300);}catch(e){$('roomDescription').textContent='تعذر بدء المباراة: '+e.message;$('startOnlineBtn').disabled=false;}}
 $('createRoomBtn').onclick=createOnlineRoom;
-$('joinRoomBtn').onclick=()=>{
- stopRoomPolling();
- $('friendsMenu').classList.add('hidden');$('roomMenu').classList.remove('hidden');
- $('roomTitle').textContent='الانضمام إلى غرفة — '+friendsPlayerCount+' لاعبين';
- $('roomDescription').textContent='أدخل رمز الغرفة الذي أرسله لك صديقك.';
- $('roomCodeDisplay').classList.add('hidden');
- $('roomCodeInput').classList.remove('hidden');
- $('confirmJoinBtn').classList.remove('hidden');
-};
-$('confirmJoinBtn').onclick=joinOnlineRoom;
-$('roomBackBtn').onclick=()=>{$('roomMenu').classList.add('hidden');$('friendsMenu').classList.remove('hidden')};
+$('joinRoomBtn').onclick=()=>{stopRoomPolling();$('friendsMenu').classList.add('hidden');$('roomMenu').classList.remove('hidden');$('roomTitle').textContent='الانضمام إلى غرفة — '+friendsPlayerCount+' لاعبين';$('roomDescription').textContent='أدخل رمز الغرفة الذي أرسله لك صديقك.';$('roomCodeDisplay').classList.add('hidden');$('roomCodeInput').classList.remove('hidden');$('confirmJoinBtn').classList.remove('hidden');$('startOnlineBtn').classList.add('hidden');};
+$('confirmJoinBtn').onclick=joinOnlineRoom;$('startOnlineBtn').onclick=startOnlineGame;
+$('roomBackBtn').onclick=()=>{$('roomMenu').classList.add('hidden');$('friendsMenu').classList.remove('hidden');stopRoomPolling();};
 $('again').onclick=startGame;
 
 </script>
