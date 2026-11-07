@@ -214,7 +214,7 @@ button{font:inherit;cursor:pointer}
   </div>
  </div>
  <div class="hand-area"><div class="hand-title"><span>أوراقك 🎴</span><span id="mycount">7 أوراق</span></div><div class="hand" id="hand"></div></div>
- <div class="controls"><button class="action secondary" id="drawBtn">اسحب ورقة</button><button class="action" id="unoBtn">UNO!</button></div>
+ <div class="controls"><button class="action secondary" id="drawBtn">اسحب ورقة</button><button class="action secondary hidden" id="passBtn">إنهاء دوري</button><button class="action" id="unoBtn">UNO!</button></div>
 </div>
 
 <div class="menu-screen" id="homeMenu">
@@ -292,7 +292,7 @@ function turnSound(){tone(660,.12,'sine',.06);tone(880,.2,'sine',.055,.14)}
 function robotSound(){tone(390,.055,'triangle',.025);tone(330,.07,'triangle',.02,.06)}
 
 const colors=['red','blue','green','yellow'], symbols=['0','1','2','3','4','5','6','7','8','9','+2','skip','reverse'];
-let hands=[],discard=[],turn=0,direction=1,currentColor='red',busy=false,needUno=false,gameOver=false,playerCount=4,hasDrawnThisTurn=false,lastGameMode='normal';
+let hands=[],discard=[],turn=0,direction=1,currentColor='red',busy=false,needUno=false,gameOver=false,playerCount=4,hasDrawnThisTurn=false,drawnCardIndex=-1,lastGameMode='normal';
 const $=id=>document.getElementById(id);
 const names=['أنت','الكمبيوتر','روبوت 2','روبوت 3'];
 function makeDeck(){let d=[];for(const c of colors){d.push({c,v:'0'});for(let n=1;n<=9;n++){d.push({c,v:String(n)},{c,v:String(n)});}for(let i=0;i<2;i++)d.push({c,v:'+2'},{c,v:'skip'},{c,v:'reverse'});}for(let i=0;i<4;i++)d.push({c:'wild',v:'wild'},{c:'wild',v:'+4'});return d.sort(()=>Math.random()-.5)}
@@ -313,7 +313,7 @@ function flyCard(source){
  ],{duration:520,easing:'cubic-bezier(.2,.75,.25,1)'});
  setTimeout(()=>clone.remove(),540);
 }
-function startGame(mode='normal'){lastGameMode=mode;audioReady();onlineMode=false;hasDrawnThisTurn=false;playerCount=mode==='1v1'?2:4;hands=[[],[],[],[]];discard=[];turn=0;direction=1;busy=false;gameOver=false;needUno=false;let deck=makeDeck();for(let n=0;n<7;n++)for(let p=0;p<playerCount;p++)hands[p].push(deck.pop());let first=deck.pop();while(first.c==='wild')first=deck.pop();discard.push(first);currentColor=first.c;window.deck=deck;$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');$('settingsMenu').classList.add('hidden');$('endDialog').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount)}render();say('دورك! العب ورقة تطابق اللون أو الرقم');turnSound();}
+function startGame(mode='normal'){lastGameMode=mode;audioReady();onlineMode=false;hasDrawnThisTurn=false;drawnCardIndex=-1;playerCount=mode==='1v1'?2:4;hands=[[],[],[],[]];discard=[];turn=0;direction=1;busy=false;gameOver=false;needUno=false;let deck=makeDeck();for(let n=0;n<7;n++)for(let p=0;p<playerCount;p++)hands[p].push(deck.pop());let first=deck.pop();while(first.c==='wild')first=deck.pop();discard.push(first);currentColor=first.c;window.deck=deck;$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');$('settingsMenu').classList.add('hidden');$('endDialog').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount)}render();say('دورك! العب ورقة تطابق اللون أو الرقم');turnSound();}
 function topCard(){return discard[discard.length-1]}
 function canPlay(c){let t=topCard();return c.c==='wild'||c.c===currentColor||c.v===t.v}
 function render(){let t=topCard();$('discard').className='card '+(t.c==='wild'?currentColor:t.c);$('discard').innerHTML='<span>'+(t.v==='skip'?'⊘':t.v==='reverse'?'⇄':t.v==='wild'?'✦':t.v)+'</span>';
@@ -326,22 +326,55 @@ function render(){let t=topCard();$('discard').className='card '+(t.c==='wild'?c
   if(p===2) back.style.transform=`rotate(${(k-4.5)*3}deg)`;
   fan.appendChild(back);
  }
- }$('mycount').textContent=hands[0].length+' أوراق';$('seat1').classList.toggle('active',turn===1);$('seat2').classList.toggle('active',turn===2);$('seat3').classList.toggle('active',turn===3);let h=$('hand');h.innerHTML='';hands[0].forEach((c,i)=>{let el=cardEl(c);if(turn===0&&!busy&&canPlay(c))el.classList.add('playable');el.addEventListener('click',()=>play(0,i));h.appendChild(el)});$('drawBtn').disabled=turn!==0||busy||onlineBusy||gameOver||hasDrawnThisTurn;}
+ }$('mycount').textContent=hands[0].length+' أوراق';$('seat1').classList.toggle('active',turn===1);$('seat2').classList.toggle('active',turn===2);$('seat3').classList.toggle('active',turn===3);let h=$('hand');h.innerHTML='';hands[0].forEach((c,i)=>{let el=cardEl(c);const allowedByDraw=!hasDrawnThisTurn||i===drawnCardIndex;if(turn===0&&!busy&&allowedByDraw&&canPlay(c))el.classList.add('playable');el.addEventListener('click',()=>play(0,i));h.appendChild(el)});$('drawBtn').disabled=turn!==0||busy||onlineBusy||gameOver||hasDrawnThisTurn;$('passBtn').classList.toggle('hidden',!hasDrawnThisTurn||turn!==0||gameOver);$('passBtn').disabled=turn!==0||busy||onlineBusy||gameOver||!hasDrawnThisTurn;}
 function draw(p,n=1){for(let i=0;i<n;i++){if(!window.deck.length){if(discard.length>1){let top=discard.pop();window.deck=discard.sort(()=>Math.random()-.5);discard=[top]}else return}hands[p].push(window.deck.pop())}}
-function next(){hasDrawnThisTurn=false;turn=(turn+direction+playerCount)%playerCount;render();if(turn!==0&&!gameOver){busy=true;say(names[turn]+' يفكر... 🤔');setTimeout(robotTurn,1400+Math.floor(Math.random()*1100))}else{busy=false;say('🔔 دورك الآن! اختر ورقة أو اسحب ورقة');turnSound();render()}}
+function next(){hasDrawnThisTurn=false;drawnCardIndex=-1;turn=(turn+direction+playerCount)%playerCount;render();if(turn!==0&&!gameOver){busy=true;say(names[turn]+' يفكر... 🤔');setTimeout(robotTurn,1400+Math.floor(Math.random()*1100))}else{busy=false;say('🔔 دورك الآن! اختر ورقة أو اسحب ورقة');turnSound();render()}}
 function finish(p){gameOver=true;$('endTitle').textContent=p===0?'🏆 فزت!':'انتهت الجولة';$('endText').textContent=p===0?'مبروك! أنهيت أوراقك قبل الجميع.':names[p]+' أنهى أوراقه وفاز هذه المرة.';$('endDialog').classList.remove('hidden')}
 let onlineMode=false, onlineSeat=0, onlineIsOwner=false, onlinePlayerNames=[], onlineLastUpdated='', onlineBusy=false, pendingWildIndex=-1;
 async function onlineAction(action,extra={}){if(!onlineMode||!activeRoomCode||!activePlayerId)return;onlineBusy=true;render();try{const data=await callRoomFunction({action,room_code:activeRoomCode,player_id:activePlayerId,...extra});applyOnlineState(data);return data;}catch(e){say('تعذر تنفيذ الحركة: '+e.message);throw e;}finally{onlineBusy=false;render();}}
-function applyOnlineState(data){if(!data)return;hasDrawnThisTurn=false;onlineMode=true;playerCount=Number(data.player_count||friendsPlayerCount);onlineSeat=Number(data.your_seat||0);const oldTurn=turn;turn=(Number(data.turn||0)-onlineSeat+playerCount)%playerCount;direction=Number(data.direction||1);discard=Array.isArray(data.discard)?data.discard:discard;currentColor=data.current_color||currentColor;hands=Array.from({length:4},(_,i)=>i===0?(data.your_hand||[]):[]);(data.players||[]).forEach(pl=>{const relative=(Number(pl.seat)-onlineSeat+playerCount)%playerCount;if(relative>0)hands[relative]=Array.from({length:Number(pl.cards||0)},()=>({c:'back',v:'?'}));});for(let i=playerCount;i<4;i++)hands[i]=[];gameOver=data.phase==='finished';busy=onlineBusy;onlineLastUpdated=data.updated_at||'';for(let p=1;p<4;p++){const rel=(onlineSeat+p)%playerCount;const info=(data.players||[]).find(x=>Number(x.seat)===rel);if(info){const el=$('seat'+p);el.querySelector('.pname').textContent=onlinePlayerNames[rel]||('لاعب '+(p+1));el.querySelector('.avatar').textContent='👤';}}$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount);}if(data.phase==='finished'){ $('endTitle').textContent=Number(data.winner)===onlineSeat?'🏆 فزت!':'انتهت المباراة';$('endText').textContent=Number(data.winner)===onlineSeat?'مبروك! أنهيت أوراقك.':'فاز لاعب آخر هذه المرة.';$('endDialog').classList.remove('hidden');}render();if(!gameOver&&turn===0)say('🔔 دورك الآن! العب ورقة أو اسحب.');else if(!gameOver)say('انتظر دور اللاعب الآخر...');}
-async function play(p,index,chosen){if(onlineMode){if(p!==0||turn!==0||onlineBusy||gameOver)return;const c=hands[0][index];if(!c||!canPlay(c))return;if(c.c==='wild'&&!chosen){pendingWildIndex=index;$('colorDialog').classList.remove('hidden');return;}await onlineAction('play',{card_index:index,...(chosen?{color:chosen}:{})});return;}if(gameOver||busy&&p===0||turn!==p)return;let c=hands[p][index];if(!c||!canPlay(c))return;if(c.c==='wild'&&!chosen&&p===0){pendingWildIndex=index;$('colorDialog').classList.remove('hidden');return}const source=p===0?$('hand').children[index]:$('fan'+p).children[Math.min(index,Math.max(0,$('fan'+p).children.length-1))];
+function applyOnlineState(data){if(!data)return;onlineMode=true;hasDrawnThisTurn=!!data.drawn_this_turn;drawnCardIndex=Number.isInteger(Number(data.drawn_card_index))?Number(data.drawn_card_index):-1;playerCount=Number(data.player_count||friendsPlayerCount);onlineSeat=Number(data.your_seat||0);const oldTurn=turn;turn=(Number(data.turn||0)-onlineSeat+playerCount)%playerCount;direction=Number(data.direction||1);discard=Array.isArray(data.discard)?data.discard:discard;currentColor=data.current_color||currentColor;hands=Array.from({length:4},(_,i)=>i===0?(data.your_hand||[]):[]);(data.players||[]).forEach(pl=>{const relative=(Number(pl.seat)-onlineSeat+playerCount)%playerCount;if(relative>0)hands[relative]=Array.from({length:Number(pl.cards||0)},()=>({c:'back',v:'?'}));});for(let i=playerCount;i<4;i++)hands[i]=[];gameOver=data.phase==='finished';busy=onlineBusy;onlineLastUpdated=data.updated_at||'';for(let p=1;p<4;p++){const rel=(onlineSeat+p)%playerCount;const info=(data.players||[]).find(x=>Number(x.seat)===rel);if(info){const el=$('seat'+p);el.querySelector('.pname').textContent=onlinePlayerNames[rel]||('لاعب '+(p+1));el.querySelector('.avatar').textContent='👤';}}$('homeMenu').classList.add('hidden');$('friendsMenu').classList.add('hidden');$('roomMenu').classList.add('hidden');for(let p=1;p<4;p++){$('seat'+p).classList.toggle('hidden',p>=playerCount);$('fan'+p).classList.toggle('hidden',p>=playerCount);}if(data.phase==='finished'){ $('endTitle').textContent=Number(data.winner)===onlineSeat?'🏆 فزت!':'انتهت المباراة';$('endText').textContent=Number(data.winner)===onlineSeat?'مبروك! أنهيت أوراقك.':'فاز لاعب آخر هذه المرة.';$('endDialog').classList.remove('hidden');}render();if(!gameOver&&turn===0)say('🔔 دورك الآن! العب ورقة أو اسحب.');else if(!gameOver)say('انتظر دور اللاعب الآخر...');}
+async function play(p,index,chosen){if(onlineMode){if(p!==0||turn!==0||onlineBusy||gameOver)return;const c=hands[0][index];if(!c||!canPlay(c)){say('هذه الورقة لا تطابق اللون أو الرقم أو الرمز الحالي.');return;}if(hasDrawnThisTurn&&index!==drawnCardIndex){say('بعد السحب يمكنك لعب الورقة المسحوبة فقط أو إنهاء دورك.');return;}if(c.c==='wild'&&!chosen){pendingWildIndex=index;$('colorDialog').classList.remove('hidden');return;}await onlineAction('play',{card_index:index,...(chosen?{color:chosen}:{})});return;}if(gameOver||busy&&p===0||turn!==p)return;let c=hands[p][index];if(!c||!canPlay(c)){if(p===0)say('هذه الورقة لا تطابق اللون أو الرقم أو الرمز الحالي.');return;}if(p===0&&hasDrawnThisTurn&&index!==drawnCardIndex){say('بعد السحب يمكنك لعب الورقة المسحوبة فقط أو إنهاء دورك.');return;}if(c.c==='wild'&&!chosen&&p===0){pendingWildIndex=index;$('colorDialog').classList.remove('hidden');return}const source=p===0?$('hand').children[index]:$('fan'+p).children[Math.min(index,Math.max(0,$('fan'+p).children.length-1))];
 flyCard(source);cardSound();
-hands[p].splice(index,1);hasDrawnThisTurn=false;discard.push(c);if(c.c!=='wild')currentColor=c.c;else currentColor=chosen||colors[Math.floor(Math.random()*4)];if(hands[p].length===0){render();finish(p);return}if(p===0&&hands[p].length===1){say('بقيت ورقة واحدة! اضغط UNO');needUno=true}else needUno=false;
-let skip=false;if(c.v==='+2'){let victim=(p+direction+playerCount)%playerCount;draw(victim,2);skip=true}else if(c.v==='+4'){let victim=(p+direction+playerCount)%playerCount;draw(victim,4);skip=true}else if(c.v==='skip')skip=true;else if(c.v==='reverse'){direction*=-1;if(p!==0){}}
-render();say(names[p]+' لعب '+(c.v==='wild'?'ورقة تغيير اللون':c.v));if(skip)turn=(turn+direction+4)%4;next()}
+hands[p].splice(index,1);hasDrawnThisTurn=false;drawnCardIndex=-1;discard.push(c);if(c.c!=='wild')currentColor=c.c;else currentColor=chosen||colors[Math.floor(Math.random()*4)];if(hands[p].length===0){render();finish(p);return}if(p===0&&hands[p].length===1){say('بقيت ورقة واحدة! اضغط UNO');needUno=true}else needUno=false;
+let skip=false;if(c.v==='+2'){let victim=(p+direction+playerCount)%playerCount;draw(victim,2);skip=true}else if(c.v==='+4'){let victim=(p+direction+playerCount)%playerCount;draw(victim,4);skip=true}else if(c.v==='skip')skip=true;else if(c.v==='reverse'){direction*=-1;}
+render();say(names[p]+' لعب '+(c.v==='wild'?'ورقة تغيير اللون':c.v));if(skip)turn=(p+direction+playerCount)%playerCount;next()}
 document.querySelectorAll('.colorpick').forEach(b=>b.addEventListener('click',async()=>{if(onlineBusy)return;const i=pendingWildIndex;const chosen=b.dataset.color;if(i<0){$('colorDialog').classList.add('hidden');return;}if(!colors.includes(chosen)){say('اختر لوناً صحيحاً.');return;}const selected=hands[0][i];if(!selected||selected.c!=='wild'){ $('colorDialog').classList.add('hidden');pendingWildIndex=-1;say('تغيّرت الأوراق؛ اختر الورقة مرة أخرى.');return;}b.disabled=true;document.querySelectorAll('.colorpick').forEach(x=>x.disabled=true);try{if(onlineMode){if(turn!==0||gameOver)throw new Error('ليس دورك الآن.');await onlineAction('play',{card_index:i,color:chosen});}else{await play(0,i,chosen);}pendingWildIndex=-1;$('colorDialog').classList.add('hidden');}catch(e){say('لم تُلعب الورقة: '+(e.message||'حاول مرة أخرى'));$('colorDialog').classList.remove('hidden');}finally{document.querySelectorAll('.colorpick').forEach(x=>x.disabled=false);}}));
 function robotTurn(){if(gameOver)return;let options=hands[turn].map((c,i)=>({c,i})).filter(x=>canPlay(x.c));if(options.length){options.sort((a,b)=>(b.c.v==='+4'?4:b.c.v==='+2'?3:b.c.c==='wild'?2:1)-(a.c.v==='+4'?4:a.c.v==='+2'?3:a.c.c==='wild'?2:1));let pick=options[0];playRobot(pick.i)}else{drawSound();draw(turn);let i=hands[turn].findIndex(canPlay);if(i>=0)playRobot(i);else{say(names[turn]+' سحب ورقة');next()}}}
-function playRobot(i){let c=hands[turn][i];robotSound();const source=$('fan'+turn).children[Math.min(i,Math.max(0,$('fan'+turn).children.length-1))];flyCard(source);hands[turn].splice(i,1);discard.push(c);if(c.c!=='wild')currentColor=c.c;else{let counts={red:0,blue:0,green:0,yellow:0};hands[turn].forEach(x=>{if(x.c!=='wild')counts[x.c]++});currentColor=colors.sort((a,b)=>counts[b]-counts[a])[0]}if(hands[turn].length===0){render();finish(turn);return}let p=turn;if(c.v==='+2')draw((p+direction+4)%4,2);if(c.v==='+4')draw((p+direction+4)%4,4);if(c.v==='reverse')direction*=-1;let skip=['skip','+2','+4'].includes(c.v);render();say(names[p]+' لعب ورقة');if(skip)turn=(turn+direction+4)%4;next()}
-$('drawBtn').addEventListener('click',()=>{if(turn!==0||busy||gameOver||onlineBusy||hasDrawnThisTurn)return;if(onlineMode){drawSound();onlineAction('draw');return;}drawSound();draw(0);hasDrawnThisTurn=true;let i=hands[0].findIndex(canPlay);render();if(i>=0)say('سحبت ورقة واحدة. يمكنك لعب ورقة متاحة أو إنهاء دورك.');else{say('سحبت ورقة واحدة ولا توجد حركة متاحة؛ انتهى دورك.');setTimeout(next,650)}});
+function playRobot(i){
+ const p=turn, c=hands[p][i];
+ if(!c)return;
+ robotSound();
+ const source=$('fan'+p).children[Math.min(i,Math.max(0,$('fan'+p).children.length-1))];
+ flyCard(source);
+ hands[p].splice(i,1);
+ discard.push(c);
+ if(c.c!=='wild')currentColor=c.c;
+ else{
+  const counts={red:0,blue:0,green:0,yellow:0};
+  hands[p].forEach(x=>{if(x.c!=='wild')counts[x.c]++});
+  currentColor=colors.slice().sort((a,b)=>counts[b]-counts[a])[0];
+ }
+ if(hands[p].length===0){render();finish(p);return;}
+
+ // Resolve draw penalties against the actual next seat before advancing.
+ const nextSeat=(p+direction+playerCount)%playerCount;
+ if(c.v==='+2')draw(nextSeat,2);
+ if(c.v==='+4')draw(nextSeat,4);
+ if(c.v==='reverse')direction*=-1;
+
+ const skipsNext=['skip','+2','+4'].includes(c.v);
+ render();
+ if(c.v==='+4')say(names[p]+' لعب +4 — '+names[nextSeat]+' يسحب أربع أوراق ويفقد دوره.');
+ else if(c.v==='+2')say(names[p]+' لعب +2 — '+names[nextSeat]+' يسحب ورقتين ويفقد دوره.');
+ else say(names[p]+' لعب ورقة');
+
+ // next() advances once. For a skip/draw-penalty, start from the skipped
+ // seat so the turn advances to the following player (also correct in 1v1).
+ turn=skipsNext?nextSeat:p;
+ next();
+}
+$('drawBtn').addEventListener('click',()=>{if(turn!==0||busy||gameOver||onlineBusy||hasDrawnThisTurn)return;if(onlineMode){drawSound();onlineAction('draw');return;}drawSound();draw(0);hasDrawnThisTurn=true;drawnCardIndex=hands[0].length-1;render();say(canPlay(hands[0][drawnCardIndex])?'سحبت ورقة واحدة. يمكنك لعبها أو الضغط على إنهاء دوري.':'سحبت ورقة واحدة. اضغط إنهاء دوري للانتقال إلى اللاعب التالي.');});
+$('passBtn').addEventListener('click',()=>{if(turn!==0||busy||gameOver||onlineBusy||!hasDrawnThisTurn)return;if(onlineMode){onlineAction('pass');return;}hasDrawnThisTurn=false;drawnCardIndex=-1;next();});
 $('unoBtn').addEventListener('click',()=>{if(hands[0].length===1){say('UNO! أحسنت 🎉');needUno=false}else say('اضغط UNO عندما تبقى معك ورقة واحدة')});
 $('soundBtn').onclick=()=>{soundEnabled=!soundEnabled;$('soundBtn').textContent=soundEnabled?'🔊 الصوت':'🔇 صامت';if(soundEnabled){audioReady();turnSound()}};
 
